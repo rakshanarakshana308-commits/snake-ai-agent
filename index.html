@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Agent for Intelligent Snake Game</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: #1e293b;
+            --accent-color: #38bdf8;
+            --snake-head: #22c55e;
+            --snake-body: #4ade80;
+            --food-color: #ef4444;
+            --path-color: rgba(56, 189, 248, 0.35);
+            --text-color: #f8fafc;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 2rem;
+            color: var(--accent-color);
+            margin-bottom: 5px;
+        }
+
+        p.subtitle {
+            font-size: 0.9rem;
+            color: #94a3b8;
+        }
+
+        .main-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            align-items: flex-start;
+            max-width: 1000px;
+            width: 100%;
+        }
+
+        .game-card {
+            background: var(--panel-bg);
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        canvas {
+            background-color: #020617;
+            border: 2px solid #334155;
+            border-radius: 8px;
+            display: block;
+        }
+
+        .dashboard {
+            flex: 1;
+            min-width: 280px;
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .stat-box {
+            background: #0f172a;
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 4px solid var(--accent-color);
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: #94a3b8;
+            letter-spacing: 1px;
+        }
+
+        .stat-value {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-top: 4px;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .btn-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        button {
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: #334155;
+            color: white;
+        }
+
+        button:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        button.active {
+            background: var(--accent-color);
+            color: #0f172a;
+        }
+
+        .btn-start { background: #16a34a; }
+        .btn-restart { background: #dc2626; }
+
+        .legend {
+            display: flex;
+            gap: 15px;
+            font-size: 0.8rem;
+            margin-top: 10px;
+            justify-content: center;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .color-box {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        .status-running { background: #16a34a22; color: #4ade80; }
+        .status-gameover { background: #dc262622; color: #f87171; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>AI Agent: Intelligent Snake</h1>
+    <p class="subtitle">Autonomous Decision-Making & Pathfinding Prototype (A* / BFS)</p>
+</header>
+
+<div class="main-container">
+    <div class="game-card">
+        <canvas id="gameCanvas" width="400" height="400"></canvas>
+        <div class="legend">
+            <div class="legend-item"><div class="color-box" style="background:var(--snake-head)"></div> Head</div>
+            <div class="legend-item"><div class="color-box" style="background:var(--food-color)"></div> Food</div>
+            <div class="legend-item"><div class="color-box" style="background:var(--path-color)"></div> AI Path</div>
+        </div>
+    </div>
+
+    <div class="dashboard">
+        <div class="stat-box">
+            <div class="stat-label">Game Status</div>
+            <div class="stat-value" id="gameStatus"><span class="status-badge status-running">READY</span></div>
+        </div>
+
+        <div class="stat-box">
+            <div class="stat-label">Score / Speed</div>
+            <div class="stat-value"><span id="score">0</span> <span style="font-size:0.8rem; color:#94a3b8;">(<span id="speed">100</span>ms)</span></div>
+        </div>
+
+        <div class="stat-box">
+            <div class="stat-label">AI Agent Strategy</div>
+            <div class="stat-value" id="aiStatus" style="color: var(--accent-color);">Idle</div>
+        </div>
+
+        <div class="stat-box">
+            <div class="stat-label">Current Decision</div>
+            <div class="stat-value" id="aiDecision">NONE</div>
+        </div>
+
+        <div class="controls">
+            <div class="btn-group">
+                <button id="btnManual" class="active" onclick="setMode('manual')">Manual Mode</button>
+                <button id="btnAI" onclick="setMode('ai')">AI Mode</button>
+            </div>
+            <div class="btn-group">
+                <button class="btn-start" onclick="startGame()">Start</button>
+                <button class="btn-restart" onclick="resetGame()">Reset</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- CANVAS & GRID CONFIGURATION ---
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const GRID_SIZE = 20; // 20x20 grid
+    const CELL_SIZE = canvas.width / GRID_SIZE;
+
+    // --- GAME STATE VARIABLES ---
+    let snake = [];
+    let food = { x: 0, y: 0 };
+    let direction = "RIGHT";
+    let nextDirection = "RIGHT";
+    let score = 0;
+    let baseSpeed = 100; // ms per tick
+    let currentSpeed = baseSpeed;
+    let gameInterval = null;
+    let isRunning = false;
+    let controlMode = "manual"; // 'manual' or 'ai'
+    let calculatedPath = []; // For visual rendering of AI path
+
+    // UI Elements
+    const scoreEl = document.getElementById("score");
+    const speedEl = document.getElementById("speed");
+    const gameStatusEl = document.getElementById("gameStatus");
+    const aiStatusEl = document.getElementById("aiStatus");
+    const aiDecisionEl = document.getElementById("aiDecision");
+
+    // Initialize Game
+    function init() {
+        snake = [
+            { x: 5, y: 10 },
+            { x: 4, y: 10 },
+            { x: 3, y: 10 }
+        ];
+        direction = "RIGHT";
+        nextDirection = "RIGHT";
+        score = 0;
+        currentSpeed = baseSpeed;
+        scoreEl.innerText = score;
+        speedEl.innerText = currentSpeed;
+        calculatedPath = [];
+        spawnFood();
+        draw();
+    }
+
+    function spawnFood() {
+        let valid = false;
+        while (!valid) {
+            food.x = Math.floor(Math.random() * GRID_SIZE);
+            food.y = Math.floor(Math.random() * GRID_SIZE);
+            // Ensure food does not spawn on the snake
+            valid = !snake.some(segment => segment.x === food.x && segment.y === food.y);
+        }
+    }
+
+    // --- CONTROL LOGIC ---
+    function setMode(mode) {
+        controlMode = mode;
+        document.getElementById("btnManual").classList.toggle("active", mode === "manual");
+        document.getElementById("btnAI").classList.toggle("active", mode === "ai");
+        aiStatusEl.innerText = mode === "ai" ? "Analyzing Grid..." : "Disabled";
+        if (mode === "manual") calculatedPath = [];
+    }
+
+    window.addEventListener("keydown", e => {
+        if (controlMode !== "manual") return;
+        if (e.key === "ArrowUp" && direction !== "DOWN") nextDirection = "UP";
+        if (e.key === "ArrowDown" && direction !== "UP") nextDirection = "DOWN";
+        if (e.key === "ArrowLeft" && direction !== "RIGHT") nextDirection = "LEFT";
+        if (e.key === "ArrowRight" && direction !== "LEFT") nextDirection = "RIGHT";
+    });
+
+    function startGame() {
+        if (isRunning) return;
+        isRunning = true;
+        gameStatusEl.innerHTML = `<span class="status-badge status-running">RUNNING</span>`;
+        gameLoop();
+    }
+
+    function resetGame() {
+        isRunning = false;
+        clearTimeout(gameInterval);
+        gameStatusEl.innerHTML = `<span class="status-badge status-running">READY</span>`;
+        aiDecisionEl.innerText = "NONE";
+        init();
+    }
+
+    function gameOver() {
+        isRunning = false;
+        clearTimeout(gameInterval);
+        gameStatusEl.innerHTML = `<span class="status-badge status-gameover">GAME OVER</span>`;
+        aiStatusEl.innerText = "Stopped";
+    }
+
+    // --- MAIN GAME LOOP ---
+    function gameLoop() {
+        if (!isRunning) return;
+
+        if (controlMode === "ai") {
+            runAIAgent();
+        } else {
+            direction = nextDirection;
+        }
+
+        moveSnake();
+
+        if (checkCollision()) {
+            gameOver();
+            return;
+        }
+
+        // Adjust speed dynamically based on score
+        currentSpeed = Math.max(40, baseSpeed - Math.floor(score / 2) * 5);
+        speedEl.innerText = currentSpeed;
+
+        draw();
+        gameInterval = setTimeout(gameLoop, currentSpeed);
+    }
+
+    function moveSnake() {
+        const head = { ...snake[0] };
+        if (direction === "UP") head.y -= 1;
+        if (direction === "DOWN") head.y += 1;
+        if (direction === "LEFT") head.x -= 1;
+        if (direction === "RIGHT") head.x += 1;
+
+        snake.unshift(head);
+
+        // Check Food Collision
+        if (head.x === food.x && head.y === food.y) {
+            score += 10;
+            scoreEl.innerText = score;
+            spawnFood();
+        } else {
+            snake.pop(); // Remove tail
+        }
+    }
+
+    function checkCollision() {
+        const head = snake[0];
+        // Wall Collision
+        if (head.x < 0 || head.x >= GRID_SIZE || head.y < 0 || head.y >= GRID_SIZE) return true;
+        // Body Collision
+        for (let i = 1; i < snake.length; i++) {
+            if (head.x === snake[i].x && head.y === snake[i].y) return true;
+        }
+        return false;
+    }
+
+    // =========================================================================
+    // --- ARTIFICIAL INTELLIGENCE & PATHFINDING LOGIC (A* Algorithm) ---
+    // =========================================================================
+
+    function runAIAgent() {
+        const head = snake[0];
+        const tail = snake[snake.length - 1];
+
+        // 1. Perception: Find optimal path to Food using A*
+        let path = findPathAStar(head, food);
+
+        if (path && path.length > 0) {
+            aiStatusEl.innerText = "Targeting Food (A*)";
+            calculatedPath = path;
+            const nextStep = path[0];
+            direction = getDirectionFromNodes(head, nextStep);
+        } else {
+            // 2. Fallback / Safety: Follow own tail to survive when food path is blocked
+            let tailPath = findPathAStar(head, tail);
+            if (tailPath && tailPath.length > 0) {
+                aiStatusEl.innerText = "Survival Mode (Follow Tail)";
+                calculatedPath = tailPath;
+                direction = getDirectionFromNodes(head, tailPath[0]);
+            } else {
+                // 3. Emergency: Take any available open cell
+                aiStatusEl.innerText = "Emergency Avoidance";
+                calculatedPath = [];
+                let safeDir = getAnySafeDirection(head);
+                if (safeDir) direction = safeDir;
+            }
+        }
+        aiDecisionEl.innerText = direction;
+    }
+
+    // Manhattan Distance Heuristic for A*
+    function heuristic(a, b) {
+        return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+    }
+
+    // A* Pathfinding Algorithm
+    function findPathAStar(start, goal) {
+        let openSet = [];
+        let closedSet = new Set();
+        
+        // Node structure: {x, y, g, h, f, parent}
+        let startNode = { x: start.x, y: start.y, g: 0, h: heuristic(start, goal), f: heuristic(start, goal), parent: null };
+        openSet.push(startNode);
+
+        while (openSet.length > 0) {
+            // Find node with lowest f score
+            openSet.sort((a, b) => a.f - b.f);
+            let current = openSet.shift();
+
+            if (current.x === goal.x && current.y === goal.y) {
+                // Reconstruct Path
+                let path = [];
+                let temp = current;
+                while (temp.parent) {
+                    path.push({ x: temp.x, y: temp.y });
+                    temp = temp.parent;
+                }
+                return path.reverse();
+            }
+
+            let key = `${current.x},${current.y}`;
+            closedSet.add(key);
+
+            // Neighbors (UP, DOWN, LEFT, RIGHT)
+            const neighbors = [
+                { x: current.x, y: current.y - 1 },
+                { x: current.x, y: current.y + 1 },
+                { x: current.x - 1, y: current.y },
+                { x: current.x + 1, y: current.y }
+            ];
+
+            for (let neighbor of neighbors) {
+                // Boundary check
+                if (neighbor.x < 0 || neighbor.x >= GRID_SIZE || neighbor.y < 0 || neighbor.y >= GRID_SIZE) continue;
+                // Collision check (treat snake body as obstacles)
+                if (isObstacle(neighbor.x, neighbor.y, goal)) continue;
+                if (closedSet.has(`${neighbor.x},${neighbor.y}`)) continue;
+
+                let gScore = current.g + 1;
+                let existingNode = openSet.find(n => n.x === neighbor.x && n.y === neighbor.y);
+
+                if (!existingNode) {
+                    let hScore = heuristic(neighbor, goal);
+                    let newNode = {
+                        x: neighbor.x,
+                        y: neighbor.y,
+                        g: gScore,
+                        h: hScore,
+                        f: gScore + hScore,
+                        parent: current
+                    };
+                    openSet.push(newNode);
+                } else if (gScore < existingNode.g) {
+                    existingNode.g = gScore;
+                    existingNode.f = existingNode.g + existingNode.h;
+                    existingNode.parent = current;
+                }
+            }
+        }
+        return null; // Path not found
+    }
+
+    function isObstacle(x, y, goal) {
+        // Do not treat goal as obstacle even if tail occupies it initially
+        if (x === goal.x && y === goal.y) return false;
+        // Ignore the last tail element since it moves away on the next tick
+        for (let i = 0; i < snake.length - 1; i++) {
+            if (snake[i].x === x && snake[i].y === y) return true;
+        }
+        return false;
+    }
+
+    function getDirectionFromNodes(from, to) {
+        if (to.x > from.x) return "RIGHT";
+        if (to.x < from.x) return "LEFT";
+        if (to.y > from.y) return "DOWN";
+        if (to.y < from.y) return "UP";
+        return direction;
+    }
+
+    function getAnySafeDirection(head) {
+        const moves = [
+            { dir: "UP", x: head.x, y: head.y - 1 },
+            { dir: "DOWN", x: head.x, y: head.y + 1 },
+            { dir: "LEFT", x: head.x - 1, y: head.y },
+            { dir: "RIGHT", x: head.x + 1, y: head.y }
+        ];
+
+        for (let m of moves) {
+            if (m.x >= 0 && m.x < GRID_SIZE && m.y >= 0 && m.y < GRID_SIZE) {
+                if (!snake.some(segment => segment.x === m.x && segment.y === m.y)) {
+                    return m.dir;
+                }
+            }
+        }
+        return null;
+    }
+
+    // --- RENDER FUNCTION ---
+    function draw() {
+        // Clear Background
+        ctx.fillStyle = "#020617";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw Grid Lines (Subtle)
+        ctx.strokeStyle = "#1e293b";
+        ctx.lineWidth = 0.5;
+        for (let i = 0; i < GRID_SIZE; i++) {
+            ctx.beginPath();
+            ctx.moveTo(i * CELL_SIZE, 0);
+            ctx.lineTo(i * CELL_SIZE, canvas.height);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(0, i * CELL_SIZE);
+            ctx.lineTo(canvas.width, i * CELL_SIZE);
+            ctx.stroke();
+        }
+
+        // Draw Visual AI Path overlay
+        if (controlMode === "ai" && calculatedPath.length > 0) {
+            ctx.fillStyle = "rgba(56, 189, 248, 0.35)";
+            for (let node of calculatedPath) {
+                ctx.fillRect(node.x * CELL_SIZE + 2, node.y * CELL_SIZE + 2, CELL_SIZE - 4, CELL_SIZE - 4);
+            }
+        }
+
+        // Draw Food
+        ctx.fillStyle = "#ef4444";
+        ctx.beginPath();
+        ctx.arc(
+            food.x * CELL_SIZE + CELL_SIZE / 2,
+            food.y * CELL_SIZE + CELL_SIZE / 2,
+            CELL_SIZE / 2 - 2,
+            0, Math.PI * 2
+        );
+        ctx.fill();
+
+        // Draw Snake Body
+        snake.forEach((segment, index) => {
+            if (index === 0) {
+                ctx.fillStyle = "#22c55e"; // Head color
+            } else {
+                ctx.fillStyle = "#4ade80"; // Body color
+            }
+            ctx.fillRect(
+                segment.x * CELL_SIZE + 1,
+                segment.y * CELL_SIZE + 1,
+                CELL_SIZE - 2,
+                CELL_SIZE - 2
+            );
+        });
+    }
+
+    // Run Initialization
+    init();
+</script>
+</body>
+</html>
